@@ -1,0 +1,138 @@
+﻿@{
+    ViewBag.Title = "Home Page";
+}
+@section scripts{
+    <!-- TODO - Fix issue with bundles missing these files -->
+    <script src="../../../Scripts/moment.min.js"></script>
+    <script src="../../../Scripts/chart.min.js"></script>
+    <script src="https://www.chartjs.org/samples/latest/utils.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <style>
+        canvas {
+            -moz-user-select: none;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+        }
+    </style>
+    <script type="text/javascript">
+
+        var config = {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: '# of employees per month',
+                    backgroundColor: window.chartColors.red,
+                    borderColor: window.chartColors.red,
+                    data: [],
+                    fill: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: 'Employees per month'
+                },
+                tooltips: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                hover: {
+                    mode: 'nearest',
+                    intersect: true
+                },
+                scales: {
+                    xAxes: [{
+                        type: 'time',
+                        time: {
+                            unit: 'month',
+                            tooltipFormat: "month YYYY"
+                        }
+                    }],
+                    legend: false
+                }
+            }
+        };
+        $(function () {
+            var employeesEachMonth = [];
+            $.get('../api/Department/Get/').done(function (departmentData) {
+                //TODO - Build department dropdown and events dynamically after request finishes
+            });
+            $.get('../api/Employee/GetCountByMonthStarted/').done(function (employeeData) {
+                employeesEachMonth = employeeData;
+                var data = filterEmployeeData(employeesEachMonth, [])
+                updateChartConfig(data);
+                drawEmployeeChart();
+            });
+            drawDatePicker();
+            function filterEmployeeData(employeeData, selectedDates) {
+                config.data.datasets[0].data = [];
+
+                var filteredEmployeeData = employeeData;
+                //filter employee results between two dates
+                if (selectedDates.length == 2) {
+                    filteredEmployeeData = filteredEmployeeData.filter(employee =>
+                        new Date(employee.Date) >= new Date(selectedDates[0]) &&
+                        new Date(employee.Date) <= new Date(selectedDates[1]));
+                }
+                return filteredEmployeeData;
+
+            }
+            function updateChartConfig(employeeData) {
+                employeeData.forEach(employee => {
+                    //filter by month range
+                    config.data.datasets[0].data.push({
+                        x: new moment(employee.Date),
+                        y: employee.EmployeeIds.length
+                    })
+                });
+            }
+            function drawEmployeeChart() {
+                var ctx = document.getElementById('canvas').getContext('2d');
+                window.myLine = new Chart(ctx, config);
+            }
+            function redrawEmployeeChart() {
+                window.myLine.update();
+            }
+            function drawDatePicker() {
+                //instantiate the range date pickers, default range is one year from today to today
+                $('#datePicker').flatpickr({
+                    mode: 'range',
+                    dateFormat: 'm/d/Y',
+                    defaultDate: [moment().add(-1, "y").format("MM DD YYYY"), moment().format("MM DD YYYY")],
+                    onChange: function (selectedDates, dateStr, instance) {
+                        var data = filterEmployeeData(employeesEachMonth, selectedDates);
+                        updateChartConfig(data);
+                        redrawEmployeeChart();
+                    }
+                })
+            }
+
+        });
+    </script>
+}
+<div class="row">
+    <div class="row">
+        <div class='col-sm-9'>
+            <input id="datePicker" class="flatpickr flatpickr-input active" type="text" placeholder="Select Date.." data-id="range" readonly="readonly">
+        </div>
+        <div class="col-sm-6">
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    Filter by Department
+                </button>
+                <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                    <a class="dropdown-item" href="#">Action</a>
+                    <a class="dropdown-item" href="#">Another action</a>
+                    <a class="dropdown-item" href="#">Something else here</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div style="width:95%">
+    <canvas id="canvas"></canvas>
+</div>
+<br />
