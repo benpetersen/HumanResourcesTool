@@ -20,5 +20,11 @@
 input,
 select,
 textarea {
-    max-width: 280px;
+    max-width: 380px;
+}
+.flatpickr{
+    min-width: 200px;
+}
+#selectedEmployeesInMonth{
+    width: 300px;
 }

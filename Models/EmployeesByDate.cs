@@ -7,12 +7,12 @@ namespace HRTool.Models
 {
     public class EmployeesByDate
     {
-        public EmployeesByDate(DateTime date, List<int> employeeIds)
+        public EmployeesByDate(DateTime date, List<Employee> employees)
         {
             Date = date;
-            EmployeeIds = employeeIds;
+            Employees = employees;
         }
         public DateTime Date { get; set; }
-        public List<int> EmployeeIds { get; set; }
+        public List<Employee> Employees { get; set; }
     }
 }

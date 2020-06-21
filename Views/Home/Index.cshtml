@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewBag.Title = "Home Page";
 }
 @section scripts{
@@ -22,11 +22,11 @@
             type: 'line',
             data: {
                 datasets: [{
-                    label: '# of employees per month',
-                    backgroundColor: window.chartColors.red,
-                    borderColor: window.chartColors.red,
+                    label: 'Employees per month',
+                    backgroundColor: 'rgba(209, 230, 245, 0.5)',
+                    borderColor: 'rgba(56, 163, 236, 1)',
                     data: [],
-                    fill: false,
+                    pointHitRadius: 20
                 }]
             },
             options: {
@@ -36,12 +36,30 @@
                     text: 'Employees per month'
                 },
                 tooltips: {
-                    mode: 'index',
-                    intersect: false,
+                    callbacks: {
+                        mode: 'dataset',
+                        label: function (tooltipItem, data) {
+                            //Label formatting to read [#] Employees joined in [March 2019]
+                            var item = data.datasets[0].data[tooltipItem.index]
+                            var employeeCount = item.y;
+                            var dateJoined = moment(item.x).format("MMMM YYYY");
+                            var label = employeeCount + (employeeCount == 1 ? " Employee" : " Employees") + " joined in " + dateJoined;
+                            return label;
+                        },
+                        title: function (tooltipItem, data) {
+                            return "";
+                        }
+                    }
                 },
                 hover: {
                     mode: 'nearest',
-                    intersect: true
+                    intersect: false,
+                    onHover: function (e) {
+                        //cursor styling to show you can click on the graph points
+                        var point = this.getElementAtEvent(e);
+                        if (point.length) e.target.style.cursor = 'pointer';
+                        else e.target.style.cursor = 'default';
+                    }
                 },
                 scales: {
                     xAxes: [{
@@ -51,6 +69,11 @@
                             tooltipFormat: "month YYYY"
                         }
                     }],
+                    yAxes: [{
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }],
                     legend: false
                 }
             }
@@ -58,34 +81,67 @@
         $(function () {
             var employeesEachMonth = [];
             $.get('../api/Department/Get/').done(function (departmentData) {
+                departmentData.forEach(department => {
+                    $('<a class="dropdown-item" href="#" data-department-id="' + department.Id + '"}>' + department.Name + '</a>').appendTo("#DepartmentDropdown")
+                });
+                $('#DepartmentDropdown a').click(e => {
+                    e.stopPropagation();
+                    var departmentId = null;
+                    if (!isEmpty(e.target.dataset) && !isEmpty(e.target.dataset.departmentId)) {
+                        departmentId = parseInt(e.target.dataset.departmentId);
+                    }
+                    var data = filterEmployeesByDepartment(employeesEachMonth, departmentId);
+                    updateChart(data);
+                });
                 //TODO - Build department dropdown and events dynamically after request finishes
             });
             $.get('../api/Employee/GetCountByMonthStarted/').done(function (employeeData) {
                 employeesEachMonth = employeeData;
-                var data = filterEmployeeData(employeesEachMonth, [])
+                var data = filterEmployeesByDate(employeesEachMonth, [])
                 updateChartConfig(data);
                 drawEmployeeChart();
             });
-            drawDatePicker();
-            function filterEmployeeData(employeeData, selectedDates) {
-                config.data.datasets[0].data = [];
+            document.getElementById("canvas").onclick = function (evt) {
+                var activePoints = window.myLine.getElementAtEvent(evt);
 
+                if (activePoints.length > 0) {
+                    var index = activePoints[0]._index;
+                    var employees = employeesEachMonth[index].Employees;
+                    var selectedEmployeesInMonth = $('#selectedEmployeesInMonth');
+                    $("#selectedMonthFromGraph").text(moment(employeesEachMonth[index].Date).format("MMMM YYYY"));
+                    selectedEmployeesInMonth.empty();
+                    employees.forEach(employee => {
+                        selectedEmployeesInMonth.append($('<li class="list-group-item">' + employee.FirstName + ' ' + employee.LastName + '</li>'))
+                    });
+                }
+            }
+            drawDatePicker();
+
+            function filterEmployeesByDepartment(employeeData, selectedDepartment) {
+                var filteredEmployeeData = employeeData;
+                if (selectedDepartment != null) {
+                    filteredEmployeeData = filteredEmployeeData.filter(item =>
+                        item.Employees.some(e => e.DepartmentId == selectedDepartment));
+                }
+                return filteredEmployeeData;
+            }
+            function filterEmployeesByDate(employeeData, selectedDates) {
                 var filteredEmployeeData = employeeData;
                 //filter employee results between two dates
                 if (selectedDates.length == 2) {
-                    filteredEmployeeData = filteredEmployeeData.filter(employee =>
-                        new Date(employee.Date) >= new Date(selectedDates[0]) &&
-                        new Date(employee.Date) <= new Date(selectedDates[1]));
+                    filteredEmployeeData = filteredEmployeeData.filter(item =>
+                        new Date(item.Date) >= new Date(selectedDates[0]) &&
+                        new Date(item.Date) <= new Date(selectedDates[1]));
                 }
                 return filteredEmployeeData;
-
             }
             function updateChartConfig(employeeData) {
+                config.data.datasets[0].data = [];
                 employeeData.forEach(employee => {
                     //filter by month range
                     config.data.datasets[0].data.push({
                         x: new moment(employee.Date),
-                        y: employee.EmployeeIds.length
+                        y: employee.Employees.length
                     })
                 });
             }
@@ -103,36 +159,69 @@
                     dateFormat: 'm/d/Y',
                     defaultDate: [moment().add(-1, "y").format("MM DD YYYY"), moment().format("MM DD YYYY")],
                     onChange: function (selectedDates, dateStr, instance) {
-                        var data = filterEmployeeData(employeesEachMonth, selectedDates);
-                        updateChartConfig(data);
-                        redrawEmployeeChart();
+                        var data = filterEmployeesByDate(employeesEachMonth, selectedDates);
+                        updateChart(data);
                     }
                 })
+            }
+            function updateChart(data) {
+                updateChartConfig(data);
+                redrawEmployeeChart();
+            }
+
+            //JS Helper functions - TODO: Move this into it's own file
+            function isEmpty(x) {
+                return (
+                    (typeof x == 'undefined')
+                    ||
+                    (x == null)
+                    ||
+                    (x == "null")
+                    ||
+                    (x == false)  //same as: !x
+                    ||
+                    (x.length == 0)
+                    ||
+                    (x == "")
+                    ||
+                    (!/[^\s]/.test(x))
+                    ||
+                    (/^\s*$/.test(x))
+                );
             }
 
         });
     </script>
 }
-<div class="row">
-    <div class="row">
-        <div class='col-sm-9'>
+
+<div class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="#">Employee Filters</a>
+    <div class="collapse navbar-collapse">
+        <ul class="navbar-nav mr-auto">
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="departmentDropdownMenuButton" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    By Department
+                </a>
+                <div id="DepartmentDropdown" class="dropdown-menu" aria-labelledby="departmentDropdownMenuButton">
+                    <a class="dropdown-item" data-department-id="null" href="#">All</a>
+                </div>
+            </li>
+        </ul>
+    </div>
+    <form class="form-inline ">
+        <div class="form-check">
+            <label class="form-check-label px-2" for="datePicker">By Date</label>
             <input id="datePicker" class="flatpickr flatpickr-input active" type="text" placeholder="Select Date.." data-id="range" readonly="readonly">
         </div>
-        <div class="col-sm-6">
-            <div class="dropdown">
-                <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    Filter by Department
-                </button>
-                <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                    <a class="dropdown-item" href="#">Action</a>
-                    <a class="dropdown-item" href="#">Another action</a>
-                    <a class="dropdown-item" href="#">Something else here</a>
-                </div>
-            </div>
-        </div>
-    </div>
+    </form>
 </div>
+
 <div style="width:95%">
     <canvas id="canvas"></canvas>
 </div>
+<br/>
+<br/>
+
+<div>Employees joined during <span id="selectedMonthFromGraph">point from graph</span></div>
+<ul id="selectedEmployeesInMonth" class="list-group"></ul>
 <br />

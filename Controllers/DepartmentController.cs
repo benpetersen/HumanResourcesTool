@@ -14,7 +14,7 @@ namespace HRTool.Controllers
         {
             new Department { Id = 1, Name = "IT" },
             new Department { Id = 2, Name = "HR" },
-            new Department { Id = 1, Name = "Administration" },
+            new Department { Id = 3, Name = "Administration" },
         };
 
         //TODO - Get Departments via API call
