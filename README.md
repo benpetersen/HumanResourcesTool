@@ -1,4 +1,4 @@
-# HRTool
+# Human Resources Tool
  
  Human Reources Admin Tool to visualize the size of departments over time to help manage facilities, supplies, resources, etc.
  The graph shows employees joined per month. Clicking on the graph verticies shows the list of users joined that month
