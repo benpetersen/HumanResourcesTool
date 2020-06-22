@@ -1,48 +1,73 @@
 ﻿using HRTool.Models;
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Linq;
-
+using System.Text;
 using System.Web.Http;
+using System.Configuration;
+using System.Data;
+using FastMember;
 
 namespace HRTool.Controllers
 {
     public class EmployeeController : ApiController
     {
-        readonly List<Employee> employees = new List<Employee>
-        {
-            new Employee { DepartmentId = 1, EmployeeId = 1, FirstName = "Jane", LastName = "Smith", DateStarted = new DateTime(2019, 11, 10) },
-            new Employee { DepartmentId = 1, EmployeeId = 2, FirstName = "Frank", LastName = "Wolff", DateStarted = new DateTime(2020, 2, 11) },
-            new Employee { DepartmentId = 1, EmployeeId = 3, FirstName = "Larry", LastName = "Ellison", DateStarted = new DateTime(2019, 10, 31) },
-            new Employee { DepartmentId = 1, EmployeeId = 91, FirstName = "Cordova", LastName = "Eve", DateStarted = new DateTime(2019, 6, 21) }
-        };
-        readonly List<EmployeesByDate> employeesByDate = new List<EmployeesByDate>
-        {
-            new EmployeesByDate(new DateTime(2019, 6, 21), new List<Employee>(){
-                new Employee { DepartmentId = 1, EmployeeId = 91, FirstName = "Cordova", LastName = "Eve", DateStarted = new DateTime(2019, 6, 21) }
-            }),
-            new EmployeesByDate(new DateTime(2019, 11, 1), new List<Employee>(){
-                new Employee { DepartmentId = 2, EmployeeId = 1, FirstName = "Jane", LastName = "Smith", DateStarted = new DateTime(2019, 11, 10) },
-                new Employee { DepartmentId = 1, EmployeeId = 2, FirstName = "Frank", LastName = "Wolff", DateStarted = new DateTime(2020, 2, 11) }
-            }),
-            new EmployeesByDate(new DateTime(2020, 2, 11), new List<Employee>(){
-                new Employee { DepartmentId = 3, EmployeeId = 3, FirstName = "Larry", LastName = "Ellison", DateStarted = new DateTime(2019, 10, 31) }
-            })
-        };
-
-        //TODO - Get data via API call
-
-        [HttpGet]
-        public IHttpActionResult Get(int EmployeeId)
-        {
-            var employee = employees.FirstOrDefault(e => e.EmployeeId == EmployeeId);
-            return Ok(employee);
-        }
 
         [HttpGet]
         public IHttpActionResult GetCountByMonthStarted()
         {
+            var employeesByDate = new List<EmployeesByDate>();
+            try
+            {
+                string connStr = ConfigurationManager.ConnectionStrings["AzureOrganizationConnString"].ConnectionString;
+                using (SqlConnection connection = new SqlConnection(connStr))
+                {
+                    string query = "SELECT CONVERT(NVARCHAR(7),JoinedDate,120) [Date], Id as EmployeeId, DepartmentId, FirstName, LastName FROM Employee GROUP BY CONVERT(NVARCHAR(7), JoinedDate, 120), Id, DepartmentId, FirstName, LastName ORDER BY[Date]";
+
+                    using (SqlCommand command = new SqlCommand(query, connection))
+                    {
+                        connection.Open();
+                        using (SqlDataReader reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                //Add to existing lists if the date is present, otherwise add a new one.
+                                var date = DateTime.Parse(reader.GetString(0));
+                                if (employeesByDate.Any(e => e.Date == date))
+                                {
+                                    var emp = employeesByDate.Find(e => e.Date == date);
+                                    emp.Employees.Add(new Employee()
+                                    {
+                                        EmployeeId = reader.GetInt32(1),
+                                        DepartmentId = reader.GetInt32(2),
+                                        FirstName = reader.GetString(3),
+                                        LastName = reader.GetString(4)
+                                    });
+                                }
+                                else
+                                {
+                                    employeesByDate.Add(new EmployeesByDate()
+                                    {
+                                        Date = date,
+                                        Employees = new List<Employee>() { new Employee(){
+                                        EmployeeId = reader.GetInt32(1),
+                                        DepartmentId = reader.GetInt32(2),
+                                        FirstName = reader.GetString(3),
+                                        LastName = reader.GetString(4)
+                                    } }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (SqlException e)
+            {
+                throw new Exception("Error retrieving Employee data: " + e.Message.ToString());
+            }
+
             return Ok(employeesByDate);
         }
     }

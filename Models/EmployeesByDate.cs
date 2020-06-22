@@ -7,11 +7,11 @@ namespace HRTool.Models
 {
     public class EmployeesByDate
     {
-        public EmployeesByDate(DateTime date, List<Employee> employees)
+        //Assists in grouping employees by date (month and year) for the view
+        public EmployeesByDate()
         {
-            Date = date;
-            Employees = employees;
         }
+
         public DateTime Date { get; set; }
         public List<Employee> Employees { get; set; }
     }

@@ -1,6 +1,3 @@
-@{
-    ViewBag.Title = "Home Page";
-}
 @section scripts{
     <!-- TODO - Fix issue with bundles missing these files -->
     <script src="../../../Scripts/moment.min.js"></script>
@@ -8,16 +5,9 @@
     <script src="https://www.chartjs.org/samples/latest/utils.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-
-    <style>
-        canvas {
-            -moz-user-select: none;
-            -webkit-user-select: none;
-            -ms-user-select: none;
-        }
-    </style>
+    <script src="../../../Scripts/dataManipulationHelpers.js"></script>
+    <!-- UI Logic-->
     <script type="text/javascript">
-
         var config = {
             type: 'line',
             data: {
@@ -40,14 +30,11 @@
                         mode: 'dataset',
                         label: function (tooltipItem, data) {
                             //Label formatting to read [#] Employees joined in [March 2019]
-                            var item = data.datasets[0].data[tooltipItem.index]
+                            var item = data.datasets[0].data[tooltipItem.index];
                             var employeeCount = item.y;
                             var dateJoined = moment(item.x).format("MMMM YYYY");
                             var label = employeeCount + (employeeCount == 1 ? " Employee" : " Employees") + " joined in " + dateJoined;
                             return label;
-                        },
-                        title: function (tooltipItem, data) {
-                            return "";
                         }
                     }
                 },
@@ -78,12 +65,15 @@
                 }
             }
         };
+
         $(function () {
             var employeesEachMonth = [];
             $.get('../api/Department/Get/').done(function (departmentData) {
+                //Get Department data and build dropdown dynamically
                 departmentData.forEach(department => {
                     $('<a class="dropdown-item" href="#" data-department-id="' + department.Id + '"}>' + department.Name + '</a>').appendTo("#DepartmentDropdown")
                 });
+
                 $('#DepartmentDropdown a').click(e => {
                     e.stopPropagation();
                     var departmentId = null;
@@ -93,14 +83,15 @@
                     var data = filterEmployeesByDepartment(employeesEachMonth, departmentId);
                     updateChart(data);
                 });
-                //TODO - Build department dropdown and events dynamically after request finishes
             });
             $.get('../api/Employee/GetCountByMonthStarted/').done(function (employeeData) {
                 employeesEachMonth = employeeData;
-                var data = filterEmployeesByDate(employeesEachMonth, [])
+                var data = filterEmployeesByDate(employeesEachMonth, []);
                 updateChartConfig(data);
                 drawEmployeeChart();
             });
+            drawDatePicker();
+            //Chart click event to show a list of employees in that month
             document.getElementById("canvas").onclick = function (evt) {
                 var activePoints = window.myLine.getElementAtEvent(evt);
 
@@ -115,13 +106,19 @@
                     });
                 }
             }
-            drawDatePicker();
+
 
             function filterEmployeesByDepartment(employeeData, selectedDepartment) {
                 var filteredEmployeeData = employeeData;
+                //check for null because selecting All resets the graph
                 if (selectedDepartment != null) {
-                    filteredEmployeeData = filteredEmployeeData.filter(item =>
-                        item.Employees.some(e => e.DepartmentId == selectedDepartment));
+                    //filter based on the DepartmentId
+                    filteredEmployeeData = filteredEmployeeData
+                        .filter((item) =>
+                            element.Employees.some((subElement) => subElement.DepartmentId == selectedDepartment))
+                            .map(element => {
+                                return Object.assign({}, element, { Employees: element.Employees.filter(subElement => subElement.DepartmentId == selectedDepartment) });
+                        }); 
                 }
                 return filteredEmployeeData;
             }
@@ -169,29 +166,15 @@
                 redrawEmployeeChart();
             }
 
-            //JS Helper functions - TODO: Move this into it's own file
-            function isEmpty(x) {
-                return (
-                    (typeof x == 'undefined')
-                    ||
-                    (x == null)
-                    ||
-                    (x == "null")
-                    ||
-                    (x == false)  //same as: !x
-                    ||
-                    (x.length == 0)
-                    ||
-                    (x == "")
-                    ||
-                    (!/[^\s]/.test(x))
-                    ||
-                    (/^\s*$/.test(x))
-                );
-            }
-
         });
     </script>
+    <style>
+        canvas {
+            -moz-user-select: none;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+        }
+    </style>
 }
 
 <div class="navbar navbar-expand-lg navbar-light bg-light">
@@ -219,8 +202,8 @@
 <div style="width:95%">
     <canvas id="canvas"></canvas>
 </div>
-<br/>
-<br/>
+<br />
+<br />
 
 <div>Employees joined during <span id="selectedMonthFromGraph">point from graph</span></div>
 <ul id="selectedEmployeesInMonth" class="list-group"></ul>

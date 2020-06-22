@@ -83,3 +83,6 @@ C:\Users\Petersens\Documents\Bens\Projects\HRTool\obj\Debug\HumanResourcesAdmin.
 C:\Users\Petersens\Documents\Bens\Projects\HRTool\obj\Debug\HumanResourcesAdmin.csproj.CopyComplete
 C:\Users\Petersens\Documents\Bens\Projects\HRTool\obj\Debug\HRTool.dll
 C:\Users\Petersens\Documents\Bens\Projects\HRTool\obj\Debug\HRTool.pdb
+C:\Users\Petersens\Documents\Bens\Projects\HRTool\bin\System.Data.SqlClient.dll
+C:\Users\Petersens\Documents\Bens\Projects\HRTool\bin\System.Data.SqlClient.xml
+C:\Users\Petersens\Documents\Bens\Projects\HRTool\bin\FastMember.dll
